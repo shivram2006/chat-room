@@ -1,0 +1,18 @@
+{
+  "short_name": "DeepikaChat",
+  "name": "Deepika Special Chat App 💖",
+  "description": "An exclusive real-time chat application specially crafted for Deepika with swipe reply, file sharing, and audio alerts.",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#090d16",
+  "theme_color": "#f43f5e",
+  "display": "standalone",
+  "orientation": "portrait"
+}
