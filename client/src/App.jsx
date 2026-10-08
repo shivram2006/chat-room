@@ -273,12 +273,14 @@ export default function App() {
   };
 
   return (
-    <div className="app-root-layout">
+    <div className={`app-root-layout ${isMobileChatOpen ? 'mobile-chat-mode' : ''}`}>
       {/* Grand Top Banner with prominent title & "Use as mobile app" */}
-      <HomeBanner
-        onOpenInstall={() => setShowInstallModal(true)}
-        deferredPrompt={deferredPrompt}
-      />
+      <div className={`home-banner-wrapper ${isMobileChatOpen ? 'mobile-hidden' : ''}`}>
+        <HomeBanner
+          onOpenInstall={() => setShowInstallModal(true)}
+          deferredPrompt={deferredPrompt}
+        />
+      </div>
 
       {/* Main Chat Interface */}
       <main className="main-chat-container">

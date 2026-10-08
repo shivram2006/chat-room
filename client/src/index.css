@@ -1685,64 +1685,195 @@ body {
 }
 
 /* =========================================================
-   MOBILE RESPONSIVENESS
+   MOBILE RESPONSIVENESS - NATIVE APP FEEL
    ========================================================= */
 
 @media (max-width: 768px) {
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+
   .app-root-layout {
-    padding: 8px;
-    gap: 10px;
+    padding: 0;
+    gap: 0;
+    height: 100dvh;
+    height: 100vh;
+    max-height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* When chatting on mobile, hide top grand banner so chat is 100% full screen */
+  .home-banner-wrapper.mobile-hidden {
+    display: none !important;
   }
 
   .home-banner-container {
-    padding: 18px 14px;
-    border-radius: 18px;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+    padding: 14px 12px;
+    margin: 0;
+    background: linear-gradient(135deg, rgba(20, 27, 45, 0.98) 0%, rgba(30, 27, 46, 0.95) 100%);
   }
 
   .banner-grand-title {
-    font-size: 1.45rem;
+    font-size: 1.25rem;
+    letter-spacing: 0.5px;
   }
 
   .banner-sweet-quote {
-    font-size: 1.15rem;
+    font-size: 1.02rem;
+    margin: 2px 0 6px 0;
+    line-height: 1.35;
   }
 
   .banner-action-buttons {
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .btn-mobile-app-cta, .btn-sound-cta, .btn-sparkle-love {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
     width: 100%;
     justify-content: center;
   }
 
+  .btn-mobile-app-cta {
+    flex: 1 1 100%;
+    padding: 8px 14px;
+    justify-content: center;
+  }
+  .btn-sound-cta, .btn-sparkle-love {
+    flex: 1 1 45%;
+    padding: 8px 10px;
+    font-size: 0.8rem;
+    justify-content: center;
+  }
+
+  /* Chat container fills all available mobile space */
   .main-chat-container {
-    height: calc(100vh - 280px);
-    min-height: 480px;
+    flex: 1;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .chat-card-shell {
-    border-radius: 18px;
+    border-radius: 0;
+    border: none;
+    height: 100%;
+    width: 100%;
+    box-shadow: none;
   }
 
+  /* Sidebar takes 100% when on contact list */
   .sidebar-container {
     width: 100%;
+    height: 100%;
+    border-right: none;
   }
 
+  /* When chat is open, hide sidebar */
   .chat-card-shell.mobile-chat-active .sidebar-container {
-    display: none;
+    display: none !important;
   }
 
+  /* When chat is NOT open, hide chat window */
   .chat-card-shell:not(.mobile-chat-active) .chat-window-container {
-    display: none;
+    display: none !important;
+  }
+
+  /* Full screen chat window */
+  .chat-window-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .chat-window-header {
+    height: 58px;
+    padding: 0 10px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 10;
   }
 
   .btn-header-back {
-    display: flex;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    cursor: pointer;
+    margin-right: 2px;
+  }
+
+  .chat-header-avatar {
+    width: 38px;
+    height: 38px;
+  }
+
+  .header-user-name {
+    font-size: 0.95rem;
+  }
+
+  .header-actions .btn-header-action {
+    width: 34px;
+    height: 34px;
+  }
+
+  .messages-area {
+    padding: 12px 10px;
+    flex: 1;
+    gap: 10px;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .message-row {
     max-width: 88%;
+  }
+
+  .message-bubble {
+    padding: 8px 12px;
+    border-radius: 16px;
+  }
+
+  .message-text-content {
+    font-size: 0.9rem;
+  }
+
+  /* Pinned bottom input bar */
+  .message-input-wrapper {
+    padding: 8px 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    background: rgba(11, 17, 32, 0.95);
+    flex-shrink: 0;
+  }
+
+  .chat-textarea {
+    font-size: 16px !important; /* Prevents auto zoom in iOS Safari */
+    padding: 8px 12px;
+  }
+
+  .auth-card, .install-modal-content {
+    padding: 22px 16px;
+    border-radius: 20px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .auth-form input {
+    font-size: 16px !important; /* Prevents auto zoom */
+  }
+
+  .btn-auth-submit {
+    padding: 14px;
   }
 }
