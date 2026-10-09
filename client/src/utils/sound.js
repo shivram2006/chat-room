@@ -71,10 +71,10 @@ class SoundService {
 
   // Request browser notification permission
   async requestNotificationPermission() {
-    if (!('Notification' in window)) return false;
-    if (Notification.permission === 'granted') return true;
-    if (Notification.permission !== 'denied') {
-      const permission = await Notification.requestPermission();
+    if (typeof window === 'undefined' || !('Notification' in window)) return false;
+    if (window.Notification.permission === 'granted') return true;
+    if (window.Notification.permission !== 'denied') {
+      const permission = await window.Notification.requestPermission();
       return permission === 'granted';
     }
     return false;
@@ -82,9 +82,9 @@ class SoundService {
 
   // Trigger system notification
   showSystemNotification(title, body, icon = '/icon.svg') {
-    if ('Notification' in window && Notification.permission === 'granted') {
+    if (typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === 'granted') {
       try {
-        const notif = new Notification(title, {
+        const notif = new window.Notification(title, {
           body,
           icon,
           badge: icon,

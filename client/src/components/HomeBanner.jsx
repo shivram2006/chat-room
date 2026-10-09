@@ -4,7 +4,9 @@ import confetti from 'canvas-confetti';
 import { soundService } from '../utils/sound';
 
 export default function HomeBanner({ onOpenInstall, deferredPrompt, onInstalled }) {
-  const [soundEnabled, setSoundEnabled] = useState(Notification?.permission === 'granted');
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    return typeof window !== 'undefined' && 'Notification' in window && window.Notification?.permission === 'granted';
+  });
   const [celebrated, setCelebrated] = useState(false);
 
   const handleConfetti = () => {
