@@ -15,6 +15,13 @@ const MessageSchema = new mongoose.Schema(
       senderName: { type: String, default: '' },
       fileType: { type: String, default: '' },
     },
+    reactions: [
+      {
+        emoji: { type: String, required: true },
+        userId: { type: String, required: true },
+        userName: { type: String, default: '' },
+      },
+    ],
     status: {
       type: String,
       enum: ['sent', 'delivered', 'read'],

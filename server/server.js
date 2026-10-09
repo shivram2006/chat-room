@@ -159,6 +159,55 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Reaction on a message
+  socket.on('message_react', async ({ messageId, emoji, userId, userName, otherUserId }) => {
+    try {
+      const reactions = await dbService.toggleReaction(messageId, userId, userName, emoji);
+      const payload = { messageId, reactions };
+
+      // Broadcast to both participants
+      [String(userId), String(otherUserId)].forEach((uid) => {
+        if (userSockets.has(uid)) {
+          userSockets.get(uid).forEach((sId) => io.to(sId).emit('message_reacted', payload));
+        }
+      });
+    } catch (e) {
+      console.error('Socket message_react error:', e);
+    }
+  });
+
+  // Delete message
+  socket.on('delete_message', async ({ messageId, userId, otherUserId }) => {
+    try {
+      await dbService.deleteMessage(messageId);
+      const payload = { messageId };
+
+      [String(userId), String(otherUserId)].forEach((uid) => {
+        if (userSockets.has(uid)) {
+          userSockets.get(uid).forEach((sId) => io.to(sId).emit('message_deleted', payload));
+        }
+      });
+    } catch (e) {
+      console.error('Socket delete_message error:', e);
+    }
+  });
+
+  // Clear entire conversation
+  socket.on('clear_chat', async ({ userId, otherUserId }) => {
+    try {
+      await dbService.clearConversation(userId, otherUserId);
+      const payload = { byUserId: userId, otherUserId };
+
+      [String(userId), String(otherUserId)].forEach((uid) => {
+        if (userSockets.has(uid)) {
+          userSockets.get(uid).forEach((sId) => io.to(sId).emit('chat_cleared', payload));
+        }
+      });
+    } catch (e) {
+      console.error('Socket clear_chat error:', e);
+    }
+  });
+
   // Disconnect handling
   socket.on('disconnect', async () => {
     if (authenticatedUserId && userSockets.has(authenticatedUserId)) {

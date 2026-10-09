@@ -9,19 +9,27 @@ import {
   Play,
   Pause,
   ExternalLink,
+  Smile,
+  Trash2,
 } from 'lucide-react';
+
+const REACTION_EMOJIS = ['❤️', '😂', '😮', '😢', '👍', '🔥', '🌸'];
 
 export default function MessageItem({
   message,
   isOwn,
   senderUser,
+  currentUserId,
   onReply,
   onImageClick,
+  onReact,
+  onDeleteMessage,
 }) {
   const [touchStartX, setTouchStartX] = useState(0);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
   const audioRef = useRef(null);
 
   // Swipe gesture handlers
@@ -92,6 +100,26 @@ export default function MessageItem({
         <Check size={14} />
       </span>
     );
+  };
+
+  // Group reactions by emoji
+  const groupedReactions = (message.reactions || []).reduce((acc, curr) => {
+    if (!acc[curr.emoji]) {
+      acc[curr.emoji] = { count: 0, users: [], hasReacted: false };
+    }
+    acc[curr.emoji].count += 1;
+    acc[curr.emoji].users.push(curr.userName);
+    if (String(curr.userId) === String(currentUserId)) {
+      acc[curr.emoji].hasReacted = true;
+    }
+    return acc;
+  }, {});
+
+  const handleSelectReaction = (emoji) => {
+    if (onReact) {
+      onReact(message._id, emoji);
+    }
+    setShowReactionPicker(false);
   };
 
   return (
@@ -198,14 +226,71 @@ export default function MessageItem({
           {renderStatus()}
         </div>
 
-        {/* Desktop Quick Reply Hover Button */}
-        <button
-          className="btn-quick-reply-hover"
-          onClick={() => onReply(message)}
-          title="Swipe or click to reply"
-        >
-          <CornerUpLeft size={14} />
-        </button>
+        {/* Reaction badges pill row */}
+        {Object.keys(groupedReactions).length > 0 && (
+          <div className="message-reactions-row">
+            {Object.entries(groupedReactions).map(([emoji, data]) => (
+              <button
+                key={emoji}
+                type="button"
+                className={`reaction-pill ${data.hasReacted ? 'user-reacted' : ''}`}
+                onClick={() => onReact && onReact(message._id, emoji)}
+                title={data.users.join(', ')}
+              >
+                <span>{emoji}</span>
+                {data.count > 1 && <span className="reaction-count">{data.count}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Quick Reaction popup bar */}
+        {showReactionPicker && (
+          <div className="quick-reaction-popup">
+            {REACTION_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                className="btn-emoji-bubble"
+                onClick={() => handleSelectReaction(emoji)}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Message Action Hover Bar (Reply, React, Delete) */}
+        <div className="message-hover-actions">
+          <button
+            type="button"
+            className="btn-msg-action"
+            onClick={() => setShowReactionPicker((prev) => !prev)}
+            title="React with emoji"
+          >
+            <Smile size={13} />
+          </button>
+          <button
+            type="button"
+            className="btn-msg-action"
+            onClick={() => onReply(message)}
+            title="Reply"
+          >
+            <CornerUpLeft size={13} />
+          </button>
+          <button
+            type="button"
+            className="btn-msg-action btn-msg-delete"
+            onClick={() => {
+              if (window.confirm('Delete this message?')) {
+                onDeleteMessage(message._id);
+              }
+            }}
+            title="Delete message"
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
       </div>
     </div>
   );

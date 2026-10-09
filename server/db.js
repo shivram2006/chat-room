@@ -37,23 +37,39 @@ function saveStore(store) {
   }
 }
 
-// Ensure store initialized cleanly without fake users
-function ensureDefaultUsers() {
-  const store = loadStore();
-  if (!store.users) store.users = [];
-  if (!store.messages) store.messages = [];
-  saveStore(store);
+// Clean test users (test1, test2) from store and MongoDB
+async function cleanTestUsers() {
+  try {
+    if (isMongoConnected) {
+      const deleted = await User.deleteMany({
+        username: { $in: ['test1', 'test2', 'test'] },
+      });
+      if (deleted.deletedCount > 0) {
+        console.log(`🧹 Cleaned ${deleted.deletedCount} test user(s) from MongoDB!`);
+      }
+    }
+    const store = loadStore();
+    const originalCount = store.users.length;
+    store.users = store.users.filter(
+      (u) => !['test1', 'test2', 'test'].includes(u.username.toLowerCase())
+    );
+    if (store.users.length !== originalCount) {
+      saveStore(store);
+      console.log('🧹 Cleaned test user(s) from local store!');
+    }
+  } catch (e) {
+    console.error('Error cleaning test users:', e);
+  }
 }
 
 export async function connectDB() {
   let uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/deepika_chat';
-  
-  // Clean URI if custom non-standard query parameters like ?chat-room= are present
+
+  // Clean URI if custom query parameters like ?chat-room= are present
   if (uri.includes('?chat-room=') || uri.includes('&chat-room=')) {
-    uri = uri.replace(/\?chat-room=[^&]*/, '/deepika_chat?retryWrites=true&w=majority');
+    uri = uri.replace(/\?chat-room=[^&]*/, '/chat-room?retryWrites=true&w=majority');
   } else if (uri.startsWith('mongodb+srv://') && !uri.includes('.mongodb.net/')) {
-    // Ensure database name is included before query string
-    uri = uri.replace('.mongodb.net/?', '.mongodb.net/deepika_chat?');
+    uri = uri.replace('.mongodb.net/?', '.mongodb.net/chat-room?');
   }
 
   try {
@@ -64,11 +80,12 @@ export async function connectDB() {
     });
     isMongoConnected = true;
     console.log('✅ Connected to MongoDB Atlas successfully!');
+    await cleanTestUsers();
   } catch (err) {
     isMongoConnected = false;
     console.log(`⚠️ MongoDB connection note: ${err.message}`);
     console.log('💡 Running seamlessly on local persistent store (data will be saved safely).');
-    ensureDefaultUsers();
+    await cleanTestUsers();
   }
 }
 
@@ -113,12 +130,40 @@ export const dbService = {
 
   async getAllUsers(excludeId) {
     if (isMongoConnected) {
-      return await User.find(excludeId ? { _id: { $ne: excludeId } } : {}).select('-password');
+      return await User.find(
+        excludeId
+          ? {
+              _id: { $ne: excludeId },
+              username: { $nin: ['test1', 'test2', 'test'] },
+            }
+          : { username: { $nin: ['test1', 'test2', 'test'] } }
+      ).select('-password');
     }
     const store = loadStore();
     return store.users
-      .filter((u) => !excludeId || String(u._id) !== String(excludeId))
+      .filter(
+        (u) =>
+          (!excludeId || String(u._id) !== String(excludeId)) &&
+          !['test1', 'test2', 'test'].includes(u.username.toLowerCase())
+      )
       .map(({ password, ...rest }) => rest);
+  },
+
+  async deleteUser(userId) {
+    if (isMongoConnected) {
+      await User.findByIdAndDelete(userId);
+      await Message.deleteMany({
+        $or: [{ sender: userId }, { receiver: userId }],
+      });
+      return true;
+    }
+    const store = loadStore();
+    store.users = store.users.filter((u) => String(u._id) !== String(userId));
+    store.messages = store.messages.filter(
+      (m) => String(m.sender) !== String(userId) && String(m.receiver) !== String(userId)
+    );
+    saveStore(store);
+    return true;
   },
 
   async updateUserStatus(id, isOnline, lastSeen = new Date()) {
@@ -138,13 +183,14 @@ export const dbService = {
 
   async createMessage(data) {
     if (isMongoConnected) {
-      const msg = new Message(data);
+      const msg = new Message({ ...data, reactions: [] });
       return await msg.save();
     }
     const store = loadStore();
     const newMsg = {
       _id: 'm_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
       ...data,
+      reactions: [],
       status: data.status || 'sent',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -171,6 +217,85 @@ export const dbService = {
           (String(m.sender) === String(user2) && String(m.receiver) === String(user1))
       )
       .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  },
+
+  async deleteMessage(messageId) {
+    if (isMongoConnected) {
+      await Message.findByIdAndDelete(messageId);
+      return true;
+    }
+    const store = loadStore();
+    const originalLen = store.messages.length;
+    store.messages = store.messages.filter((m) => String(m._id) !== String(messageId));
+    if (store.messages.length !== originalLen) {
+      saveStore(store);
+      return true;
+    }
+    return false;
+  },
+
+  async clearConversation(user1, user2) {
+    if (isMongoConnected) {
+      await Message.deleteMany({
+        $or: [
+          { sender: user1, receiver: user2 },
+          { sender: user2, receiver: user1 },
+        ],
+      });
+      return true;
+    }
+    const store = loadStore();
+    store.messages = store.messages.filter(
+      (m) =>
+        !(
+          (String(m.sender) === String(user1) && String(m.receiver) === String(user2)) ||
+          (String(m.sender) === String(user2) && String(m.receiver) === String(user1))
+        )
+    );
+    saveStore(store);
+    return true;
+  },
+
+  async toggleReaction(messageId, userId, userName, emoji) {
+    if (isMongoConnected) {
+      const msg = await Message.findById(messageId);
+      if (!msg) return null;
+      if (!msg.reactions) msg.reactions = [];
+
+      const existingIndex = msg.reactions.findIndex((r) => String(r.userId) === String(userId));
+      if (existingIndex > -1) {
+        if (msg.reactions[existingIndex].emoji === emoji) {
+          // Same emoji -> remove reaction (toggle off)
+          msg.reactions.splice(existingIndex, 1);
+        } else {
+          // Different emoji -> update
+          msg.reactions[existingIndex].emoji = emoji;
+        }
+      } else {
+        // New reaction
+        msg.reactions.push({ emoji, userId, userName: userName || '' });
+      }
+      await msg.save();
+      return msg.reactions;
+    }
+
+    const store = loadStore();
+    const msg = store.messages.find((m) => String(m._id) === String(messageId));
+    if (!msg) return null;
+    if (!msg.reactions) msg.reactions = [];
+
+    const existingIndex = msg.reactions.findIndex((r) => String(r.userId) === String(userId));
+    if (existingIndex > -1) {
+      if (msg.reactions[existingIndex].emoji === emoji) {
+        msg.reactions.splice(existingIndex, 1);
+      } else {
+        msg.reactions[existingIndex].emoji = emoji;
+      }
+    } else {
+      msg.reactions.push({ emoji, userId, userName: userName || '' });
+    }
+    saveStore(store);
+    return msg.reactions;
   },
 
   async markDelivered(receiverId) {

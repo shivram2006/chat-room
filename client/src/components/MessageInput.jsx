@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import {
   Send,
   Paperclip,
+  Camera,
   Smile,
   X,
   FileText,
@@ -10,6 +11,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { apiUrl } from '../utils/api';
+import CameraModal from './CameraModal';
 
 const QUICK_EMOJIS = ['💖', '✨', '🌸', '🥰', '💌', '🌹', '👑', '😘', '💫', '🔥'];
 
@@ -24,9 +26,16 @@ export default function MessageInput({
   const [filePreview, setFilePreview] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showCameraModal, setShowCameraModal] = useState(false);
 
   const fileInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+
+  const handleCameraCapture = (file) => {
+    setSelectedFile(file);
+    const url = URL.createObjectURL(file);
+    setFilePreview({ url, name: file.name, type: 'image' });
+  };
 
   const handleTextChange = (e) => {
     setText(e.target.value);
@@ -200,6 +209,16 @@ export default function MessageInput({
           <Paperclip size={20} />
         </button>
 
+        {/* Live Camera button */}
+        <button
+          type="button"
+          className="btn-input-action"
+          onClick={() => setShowCameraModal(true)}
+          title="Take photo from camera"
+        >
+          <Camera size={20} />
+        </button>
+
         {/* Emoji trigger */}
         <button
           type="button"
@@ -234,6 +253,13 @@ export default function MessageInput({
           )}
         </button>
       </form>
+
+      {/* Live Camera Modal */}
+      <CameraModal
+        isOpen={showCameraModal}
+        onClose={() => setShowCameraModal(false)}
+        onCapture={handleCameraCapture}
+      />
     </div>
   );
 }

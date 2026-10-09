@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   X,
   Download,
+  Trash2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import MessageItem from './MessageItem';
@@ -24,6 +25,9 @@ export default function ChatWindow({
   onSendMessage,
   onBack,
   onTyping,
+  onReact,
+  onDeleteMessage,
+  onClearChat,
 }) {
   const [replyingTo, setReplyingTo] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
@@ -43,6 +47,15 @@ export default function ChatWindow({
       colors: ['#f43f5e', '#ec4899', '#f472b6', '#fca5a5'],
     });
     soundService.playNotificationSound();
+  };
+
+  const handleClearChatPrompt = () => {
+    if (!activeUser) return;
+    if (window.confirm(`Clear all messages with ${activeUser.name}? This will delete the entire chat.`)) {
+      if (onClearChat) {
+        onClearChat(activeUser._id);
+      }
+    }
   };
 
   const formatLastSeenHeader = (user) => {
@@ -72,8 +85,8 @@ export default function ChatWindow({
           </p>
           <div className="empty-features-list">
             <div className="feature-pill">👉 Swipe right on any message to reply</div>
-            <div className="feature-pill">📎 Attach files & photos seamlessly</div>
-            <div className="feature-pill">🔔 Instant audio chime & status ticks</div>
+            <div className="feature-pill">📎 Attach files & live camera photos</div>
+            <div className="feature-pill">❤️ React with emojis & delete messages</div>
           </div>
         </div>
       </div>
@@ -118,6 +131,13 @@ export default function ChatWindow({
             <Heart size={18} fill="#f43f5e" color="#f43f5e" />
           </button>
           <button
+            className="btn-header-action btn-header-trash"
+            onClick={handleClearChatPrompt}
+            title="Clear entire conversation"
+          >
+            <Trash2 size={18} />
+          </button>
+          <button
             className="btn-header-action"
             onClick={() => alert(`Calling ${activeUser.name}... 📞`)}
             title="Audio Call"
@@ -155,6 +175,7 @@ export default function ChatWindow({
                 message={msg}
                 isOwn={isOwn}
                 senderUser={isOwn ? currentUser : activeUser}
+                currentUserId={currentUser?._id}
                 onReply={(m) =>
                   setReplyingTo({
                     _id: m._id,
@@ -164,6 +185,8 @@ export default function ChatWindow({
                   })
                 }
                 onImageClick={(url) => setPreviewImage(url)}
+                onReact={onReact}
+                onDeleteMessage={onDeleteMessage}
               />
             );
           })

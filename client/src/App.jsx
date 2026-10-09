@@ -200,11 +200,39 @@ export default function App() {
       }
     };
 
+    // Socket Event: Message reaction updated
+    const onMessageReacted = ({ messageId, reactions }) => {
+      setMessages((prev) =>
+        prev.map((m) => (String(m._id) === String(messageId) ? { ...m, reactions } : m))
+      );
+    };
+
+    // Socket Event: Message deleted
+    const onMessageDeleted = ({ messageId }) => {
+      setMessages((prev) => prev.filter((m) => String(m._id) !== String(messageId)));
+    };
+
+    // Socket Event: Chat cleared
+    const onChatCleared = ({ byUserId, otherUserId }) => {
+      const cur = selectedUserRef.current;
+      const myId = currentUserRef.current?._id;
+      if (
+        cur &&
+        ((String(cur._id) === String(byUserId) && String(myId) === String(otherUserId)) ||
+          (String(cur._id) === String(otherUserId) && String(myId) === String(byUserId)))
+      ) {
+        setMessages([]);
+      }
+    };
+
     socket.on('receive_message', onReceiveMessage);
     socket.on('message_sent_sync', onMessageSentSync);
     socket.on('user_status_change', onUserStatusChange);
     socket.on('user_typing', onUserTyping);
     socket.on('messages_marked_read', onMessagesMarkedRead);
+    socket.on('message_reacted', onMessageReacted);
+    socket.on('message_deleted', onMessageDeleted);
+    socket.on('chat_cleared', onChatCleared);
 
     return () => {
       socket.off('receive_message', onReceiveMessage);
@@ -212,6 +240,9 @@ export default function App() {
       socket.off('user_status_change', onUserStatusChange);
       socket.off('user_typing', onUserTyping);
       socket.off('messages_marked_read', onMessagesMarkedRead);
+      socket.off('message_reacted', onMessageReacted);
+      socket.off('message_deleted', onMessageDeleted);
+      socket.off('chat_cleared', onChatCleared);
     };
   }, [currentUser]);
 
@@ -272,6 +303,84 @@ export default function App() {
     setIsMobileChatOpen(true);
   };
 
+  // Toggle reaction on a message
+  const handleReact = (messageId, emoji) => {
+    if (!selectedUser || !currentUser) return;
+
+    // Optimistic UI update
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (String(m._id) !== String(messageId)) return m;
+        const currentReactions = m.reactions || [];
+        const idx = currentReactions.findIndex((r) => String(r.userId) === String(currentUser._id));
+        let updatedReactions = [...currentReactions];
+        if (idx > -1) {
+          if (updatedReactions[idx].emoji === emoji) {
+            updatedReactions.splice(idx, 1);
+          } else {
+            updatedReactions[idx] = { ...updatedReactions[idx], emoji };
+          }
+        } else {
+          updatedReactions.push({ emoji, userId: currentUser._id, userName: currentUser.username });
+        }
+        return { ...m, reactions: updatedReactions };
+      })
+    );
+
+    socket.emit('message_react', {
+      messageId,
+      emoji,
+      userId: currentUser._id,
+      userName: currentUser.username,
+      otherUserId: selectedUser._id,
+    });
+
+    const token = localStorage.getItem('deepika_chat_token');
+    fetch(apiUrl(`/api/messages/react/${messageId}`), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ emoji }),
+    }).catch((err) => console.error('Reaction API error:', err));
+  };
+
+  // Delete single message
+  const handleDeleteMessage = (messageId) => {
+    if (!selectedUser || !currentUser) return;
+    setMessages((prev) => prev.filter((m) => String(m._id) !== String(messageId)));
+
+    socket.emit('delete_message', {
+      messageId,
+      userId: currentUser._id,
+      otherUserId: selectedUser._id,
+    });
+
+    const token = localStorage.getItem('deepika_chat_token');
+    fetch(apiUrl(`/api/messages/${messageId}`), {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch((err) => console.error('Delete message API error:', err));
+  };
+
+  // Clear entire conversation
+  const handleClearChat = (targetUserId) => {
+    if (!currentUser) return;
+    setMessages([]);
+
+    socket.emit('clear_chat', {
+      userId: currentUser._id,
+      otherUserId: targetUserId,
+    });
+
+    const token = localStorage.getItem('deepika_chat_token');
+    fetch(apiUrl(`/api/messages/clear/${targetUserId}`), {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch((err) => console.error('Clear chat API error:', err));
+  };
+
   return (
     <div className={`app-root-layout ${isMobileChatOpen ? 'mobile-chat-mode' : ''}`}>
       {/* Grand Top Banner with prominent title & "Use as mobile app" */}
@@ -304,6 +413,9 @@ export default function App() {
             onSendMessage={handleSendMessage}
             onBack={() => setIsMobileChatOpen(false)}
             onTyping={handleTypingStatus}
+            onReact={handleReact}
+            onDeleteMessage={handleDeleteMessage}
+            onClearChat={handleClearChat}
           />
         </div>
       </main>

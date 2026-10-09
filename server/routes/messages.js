@@ -36,4 +36,56 @@ router.post('/read', authenticateToken, async (req, res) => {
   }
 });
 
+// Delete a single message
+router.delete('/:messageId', authenticateToken, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const success = await dbService.deleteMessage(messageId);
+    if (!success) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+    res.json({ success: true, messageId });
+  } catch (err) {
+    console.error('Delete message error:', err);
+    res.status(500).json({ error: 'Failed to delete message' });
+  }
+});
+
+// Clear entire conversation with another user
+router.delete('/clear/:targetUserId', authenticateToken, async (req, res) => {
+  try {
+    const currentUserId = req.user.id;
+    const { targetUserId } = req.params;
+    await dbService.clearConversation(currentUserId, targetUserId);
+    res.json({ success: true, clearedWith: targetUserId });
+  } catch (err) {
+    console.error('Clear chat error:', err);
+    res.status(500).json({ error: 'Failed to clear chat' });
+  }
+});
+
+// Toggle reaction on a message
+router.post('/react/:messageId', authenticateToken, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { emoji } = req.body;
+    const userId = req.user.id;
+    const userName = req.user.username;
+
+    if (!emoji) {
+      return res.status(400).json({ error: 'Emoji is required' });
+    }
+
+    const reactions = await dbService.toggleReaction(messageId, userId, userName, emoji);
+    if (!reactions) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+
+    res.json({ success: true, messageId, reactions });
+  } catch (err) {
+    console.error('Reaction error:', err);
+    res.status(500).json({ error: 'Failed to update reaction' });
+  }
+});
+
 export default router;
