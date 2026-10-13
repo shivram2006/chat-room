@@ -26,25 +26,40 @@ export default function MessageItem({
   onDeleteMessage,
 }) {
   const [touchStartX, setTouchStartX] = useState(0);
+  const [touchStartY, setTouchStartY] = useState(0);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const [showMobileActions, setShowMobileActions] = useState(false);
+  const [showHeartPop, setShowHeartPop] = useState(false);
+  const lastTapRef = useRef(0);
   const audioRef = useRef(null);
 
-  // Swipe gesture handlers
+  // Swipe gesture handlers with vertical scroll protection
   const handleTouchStart = (e) => {
     setTouchStartX(e.touches[0].clientX);
+    setTouchStartY(e.touches[0].clientY);
     setIsSwiping(true);
   };
 
   const handleTouchMove = (e) => {
     if (!isSwiping) return;
     const currentX = e.touches[0].clientX;
-    const diff = currentX - touchStartX;
+    const currentY = e.touches[0].clientY;
+    const diffX = currentX - touchStartX;
+    const diffY = Math.abs(currentY - touchStartY);
+
+    // If scrolling vertically, do not hijack touch for swipe
+    if (diffY > 12 && diffY > Math.abs(diffX)) {
+      setIsSwiping(false);
+      setSwipeOffset(0);
+      return;
+    }
+
     // Only allow swipe to right
-    if (diff > 0 && diff < 90) {
-      setSwipeOffset(diff);
+    if (diffX > 0 && diffX < 90) {
+      setSwipeOffset(diffX);
     }
   };
 
@@ -54,6 +69,32 @@ export default function MessageItem({
     }
     setSwipeOffset(0);
     setIsSwiping(false);
+  };
+
+  // Double tap to react with Heart ❤️ & single tap to toggle actions on mobile
+  const handleBubbleClick = (e) => {
+    // If click was on a button/link/audio, ignore
+    if (e.target.closest('button') || e.target.closest('a') || e.target.closest('audio')) {
+      return;
+    }
+
+    const now = Date.now();
+    if (now - lastTapRef.current < 320) {
+      // Double tap detected!
+      if (onReact) onReact(message._id, '❤️');
+      setShowHeartPop(true);
+      setTimeout(() => setShowHeartPop(false), 850);
+      setShowReactionPicker(false);
+      setShowMobileActions(false);
+      lastTapRef.current = 0;
+      return;
+    }
+    lastTapRef.current = now;
+
+    // Single tap on mobile toggles actions
+    if (window.innerWidth <= 768) {
+      setShowMobileActions((prev) => !prev);
+    }
   };
 
   const formatTime = (dateStr) => {
@@ -142,11 +183,15 @@ export default function MessageItem({
 
       <div
         className="message-bubble"
+        onClick={handleBubbleClick}
         style={{
           transform: `translateX(${swipeOffset}px)`,
           transition: isSwiping ? 'none' : 'transform 0.2s ease',
         }}
       >
+        {/* Double-tap animated heart pop */}
+        {showHeartPop && <div className="heart-doubletap-pop">❤️</div>}
+
         {/* Reply Quote Banner if this message is replying to something */}
         {message.replyTo && (
           <div className="replied-quote-box">
@@ -224,6 +269,18 @@ export default function MessageItem({
         <div className="message-footer-meta">
           <span className="message-timestamp">{formatTime(message.createdAt)}</span>
           {renderStatus()}
+          <button
+            type="button"
+            className="btn-msg-dots"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowMobileActions((prev) => !prev);
+            }}
+            title="Message options"
+            aria-label="Message options"
+          >
+            <Smile size={12} />
+          </button>
         </div>
 
         {/* Reaction badges pill row */}
@@ -234,7 +291,10 @@ export default function MessageItem({
                 key={emoji}
                 type="button"
                 className={`reaction-pill ${data.hasReacted ? 'user-reacted' : ''}`}
-                onClick={() => onReact && onReact(message._id, emoji)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReact && onReact(message._id, emoji);
+                }}
                 title={data.users.join(', ')}
               >
                 <span>{emoji}</span>
@@ -246,13 +306,16 @@ export default function MessageItem({
 
         {/* Quick Reaction popup bar */}
         {showReactionPicker && (
-          <div className="quick-reaction-popup">
+          <div className="quick-reaction-popup" onClick={(e) => e.stopPropagation()}>
             {REACTION_EMOJIS.map((emoji) => (
               <button
                 key={emoji}
                 type="button"
                 className="btn-emoji-bubble"
-                onClick={() => handleSelectReaction(emoji)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSelectReaction(emoji);
+                }}
               >
                 {emoji}
               </button>
@@ -260,12 +323,18 @@ export default function MessageItem({
           </div>
         )}
 
-        {/* Message Action Hover Bar (Reply, React, Delete) */}
-        <div className="message-hover-actions">
+        {/* Message Action Hover & Mobile Bar (Reply, React, Delete) */}
+        <div
+          className={`message-hover-actions ${showMobileActions ? 'mobile-visible' : ''}`}
+          onClick={(e) => e.stopPropagation()}
+        >
           <button
             type="button"
             className="btn-msg-action"
-            onClick={() => setShowReactionPicker((prev) => !prev)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowReactionPicker((prev) => !prev);
+            }}
             title="React with emoji"
           >
             <Smile size={13} />
@@ -273,7 +342,11 @@ export default function MessageItem({
           <button
             type="button"
             className="btn-msg-action"
-            onClick={() => onReply(message)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onReply(message);
+              setShowMobileActions(false);
+            }}
             title="Reply"
           >
             <CornerUpLeft size={13} />
@@ -281,10 +354,12 @@ export default function MessageItem({
           <button
             type="button"
             className="btn-msg-action btn-msg-delete"
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               if (window.confirm('Delete this message?')) {
                 onDeleteMessage(message._id);
               }
+              setShowMobileActions(false);
             }}
             title="Delete message"
           >

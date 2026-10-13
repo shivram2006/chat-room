@@ -232,11 +232,16 @@ export default function MessageInput({
         {/* Text Area */}
         <textarea
           rows={1}
-          placeholder="Type a message for Deepika..."
+          placeholder="Type a message..."
           value={text}
-          onChange={handleTextChange}
+          onChange={(e) => {
+            handleTextChange(e);
+            e.target.style.height = 'auto';
+            e.target.style.height = `${Math.min(e.target.scrollHeight, 100)}px`;
+          }}
           onKeyDown={handleKeyDown}
           className="chat-textarea"
+          aria-label="Type a message"
         />
 
         {/* Send Button */}

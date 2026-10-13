@@ -31,12 +31,25 @@ export default function ChatWindow({
 }) {
   const [replyingTo, setReplyingTo] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
+  const messagesAreaRef = useRef(null);
   const messagesEndRef = useRef(null);
 
-  // Auto-scroll on new message
+  // Auto-scroll on new message or typing inside the messages-area container only (never scrolling the window)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesAreaRef.current) {
+      messagesAreaRef.current.scrollTo({
+        top: messagesAreaRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
   }, [messages, isTyping]);
+
+  // Jump to bottom immediately on conversation switch
+  useEffect(() => {
+    if (messagesAreaRef.current) {
+      messagesAreaRef.current.scrollTop = messagesAreaRef.current.scrollHeight;
+    }
+  }, [activeUser?._id]);
 
   const handleHeartShower = () => {
     confetti({
@@ -155,7 +168,7 @@ export default function ChatWindow({
       </div>
 
       {/* Messages Scroll Area */}
-      <div className="messages-area">
+      <div className="messages-area" ref={messagesAreaRef}>
         <div className="messages-security-notice">
           <ShieldCheck size={14} />
           <span>Messages are private and end-to-end encrypted for Deepika 🌸</span>
